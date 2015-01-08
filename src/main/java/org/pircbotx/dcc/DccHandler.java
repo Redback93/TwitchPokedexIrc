@@ -1,19 +1,20 @@
 /**
- * Copyright (C) 2010-2014 Leon Blakey <lord.quackstar at gmail.com>
+ * Copyright (C) 2010-2013 Leon Blakey <lord.quackstar at gmail.com>
  *
  * This file is part of PircBotX.
  *
- * PircBotX is free software: you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
+ * PircBotX is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * PircBotX is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ * PircBotX is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * PircBotX. If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License
+ * along with PircBotX. If not, see <http://www.gnu.org/licenses/>.
  */
 package org.pircbotx.dcc;
 
@@ -47,14 +48,11 @@ import org.pircbotx.hooks.events.IncomingChatRequestEvent;
 import org.pircbotx.hooks.events.IncomingFileTransferEvent;
 import static com.google.common.base.Preconditions.*;
 import com.google.common.collect.ImmutableList;
-import java.net.Inet6Address;
 import lombok.NonNull;
-import org.pircbotx.UserHostmask;
 
 /**
  * Handler of all DCC requests
- * <p>
- * @author Leon Blakey
+ * @author Leon Blakey <lord.quackstar at gmail.com>
  */
 @RequiredArgsConstructor
 @Slf4j
@@ -69,16 +67,16 @@ public class DccHandler implements Closeable {
 	protected final Map<PendingSendChatPassive, CountDownLatch> pendingSendPassiveChat = new HashMap<PendingSendChatPassive, CountDownLatch>();
 	protected boolean shuttingDown = false;
 
-	public boolean processDcc(UserHostmask userHostmask, final User user, String request) throws IOException {
+	public boolean processDcc(final User user, String request) throws IOException {
 		List<String> requestParts = tokenizeDccRequest(request);
 		String type = requestParts.get(1);
 		if (type.equals("SEND")) {
 			//Someone is trying to send a file to us
-			//Example: DCC SEND <filename>  <ip> <port> <file size> <transferToken> (note File size is optional)
+			//Example: DCC SEND <filename> <ip> <port> <file size> <transferToken> (note File size is optional)
 			String rawFilename = requestParts.get(2);
 			final String safeFilename = (rawFilename.startsWith("\"") && rawFilename.endsWith("\""))
 					? rawFilename.substring(1, rawFilename.length() - 1) : rawFilename;
-			InetAddress address = parseRawAddress(requestParts.get(3));
+			InetAddress address = integerToAddress(requestParts.get(3));
 			int port = Integer.parseInt(requestParts.get(4));
 			long size = Integer.parseInt(Utils.tryGetIndex(requestParts, 5, "-1"));
 			String transferToken = Utils.tryGetIndex(requestParts, 6, null);
@@ -106,9 +104,9 @@ public class DccHandler implements Closeable {
 			//Nope, this is a new transfer
 			if (port == 0 || transferToken != null)
 				//User is trying to use reverse DCC
-				bot.getConfiguration().getListenerManager().dispatchEvent(new IncomingFileTransferEvent(bot, userHostmask, user, rawFilename, safeFilename, address, port, size, transferToken, true));
+				bot.getConfiguration().getListenerManager().dispatchEvent(new IncomingFileTransferEvent<PircBotX>(bot, user, rawFilename, safeFilename, address, port, size, transferToken, true));
 			else
-				bot.getConfiguration().getListenerManager().dispatchEvent(new IncomingFileTransferEvent(bot, userHostmask, user, rawFilename, safeFilename, address, port, size, transferToken, false));
+				bot.getConfiguration().getListenerManager().dispatchEvent(new IncomingFileTransferEvent<PircBotX>(bot, user, rawFilename, safeFilename, address, port, size, transferToken, false));
 		} else if (type.equals("RESUME")) {
 			//Someone is trying to resume sending a file to us
 			//Example: DCC RESUME <filename> 0 <position> <token>
@@ -153,30 +151,18 @@ public class DccHandler implements Closeable {
 			throw new DccException(DccException.Reason.UnknownFileTransferResume, user, "Transfer line: " + request);
 		} else if (type.equals("ACCEPT")) {
 			//Someone is acknowledging a transfer resume
-			//Example (normal):  DCC ACCEPT <filename> <port> <position>
-			//Example (passive): DCC ACCEPT <filename> 0 <position> <token>
-			//TODO how well does this handle non passive?
+			//Example: DCC ACCEPT <filename> 0 <position> <token> (if 0 exists then its a passive connection)
 			String filename = requestParts.get(2);
-			int port;
-			int position = Integer.parseInt(requestParts.get(4));
-			String transferToken;
-			if(requestParts.size() == 5) {
-				//Standard request
-				port = Integer.parseInt(requestParts.get(3));
-				transferToken = null;
-			} else {
-				//Passive request
-				port = 0;
-				transferToken = requestParts.get(5);
-			}
-			
+			int dataPosition = (requestParts.size() == 5) ? 3 : 4;
+			long position = Integer.parseInt(requestParts.get(dataPosition));
+			String transferToken = requestParts.get(dataPosition + 1);
 			synchronized (pendingReceiveTransfers) {
 				Iterator<Map.Entry<PendingRecieveFileTransfer, CountDownLatch>> pendingItr = pendingReceiveTransfers.entrySet().iterator();
 				while (pendingItr.hasNext()) {
 					Map.Entry<PendingRecieveFileTransfer, CountDownLatch> curEntry = pendingItr.next();
-					IncomingFileTransferEvent transferEvent = curEntry.getKey().getEvent();
+					IncomingFileTransferEvent<PircBotX> transferEvent = curEntry.getKey().getEvent();
 					if (transferEvent.getUser() == user && transferEvent.getRawFilename().equals(filename)
-							&& transferEvent.getPort() == port && transferEvent.getTransferToken() == transferEvent.getTransferToken()) {
+							&& transferEvent.getTransferToken().equals(transferToken)) {
 						curEntry.getKey().setPosition(position);
 						log.debug("Receive file transfer of file {} to user {} set to position {}",
 								transferEvent.getRawFilename(), transferEvent.getUser().getNick(), position);
@@ -189,7 +175,7 @@ public class DccHandler implements Closeable {
 		} else if (type.equals("CHAT")) {
 			//Someone is trying to chat with us
 			//Example: DCC CHAT <protocol> <ip> <port> (protocol should be chat)
-			InetAddress address = parseRawAddress(requestParts.get(3));
+			InetAddress address = integerToAddress(requestParts.get(3));
 			int port = Integer.parseInt(requestParts.get(4));
 			String chatToken = Utils.tryGetIndex(requestParts, 5, null);
 
@@ -214,9 +200,9 @@ public class DccHandler implements Closeable {
 
 			//Nope, this is a new chat
 			if (port == 0 && chatToken != null)
-				bot.getConfiguration().getListenerManager().dispatchEvent(new IncomingChatRequestEvent(bot, userHostmask, user, address, port, chatToken, true));
+				bot.getConfiguration().getListenerManager().dispatchEvent(new IncomingChatRequestEvent<PircBotX>(bot, user, address, port, chatToken, true));
 			else
-				bot.getConfiguration().getListenerManager().dispatchEvent(new IncomingChatRequestEvent(bot, userHostmask, user, address, port, chatToken, false));
+				bot.getConfiguration().getListenerManager().dispatchEvent(new IncomingChatRequestEvent<PircBotX>(bot, user, address, port, chatToken, false));
 		} else
 			return false;
 		return true;
@@ -224,7 +210,6 @@ public class DccHandler implements Closeable {
 
 	/**
 	 * Accept chat request, blocking until the connection is active
-	 * <p>
 	 * @param event The chat request event
 	 * @return An active {@link ReceiveChat}
 	 * @throws IOException If an error occurred during connection
@@ -244,9 +229,7 @@ public class DccHandler implements Closeable {
 	}
 
 	/**
-	 * Accept file transfer at position 0, blocking until the connection is
-	 * active
-	 * <p>
+	 * Accept file transfer at position 0, blocking until the connection is active
 	 * @param event The file request event
 	 * @param destination The destination file
 	 * @return An active {@link ReceiveFileTransfer}
@@ -259,16 +242,13 @@ public class DccHandler implements Closeable {
 	}
 
 	/**
-	 * Accept file transfer resuming at specified position, blocking until the
-	 * connection is active
-	 * <p>
+	 * Accept file transfer resuming at specified position, blocking until the connection is active
 	 * @param event The file request event
 	 * @param destination The destination file
 	 * @param startPosition The position to start the transfer at
-	 * @return An active {@link ReceiveFileTransfer}
+	 * @return An active {@link ReceiveFileTransfer} 
 	 * @throws IOException If an error occurred during connection
-	 * @throws InterruptedException If this is interrupted while waiting for a
-	 * connection
+	 * @throws InterruptedException If this is interrupted while waiting for a connection
 	 * @throws DccException If a timeout is reached or the bot is shutting down
 	 */
 	public ReceiveFileTransfer acceptFileTransferResume(IncomingFileTransferEvent event, File destination, long startPosition) throws IOException, InterruptedException, DccException {
@@ -283,18 +263,16 @@ public class DccHandler implements Closeable {
 			pendingReceiveTransfers.put(pendingTransfer, countdown);
 		}
 
-		//Tell user were going to resume transfering
+		//Request resume
 		if (event.isPassive())
 			bot.sendDCC().filePassiveResumeRequest(event.getUser().getNick(), event.getRawFilename(), startPosition, event.getTransferToken());
 		else
 			bot.sendDCC().fileResumeRequest(event.getUser().getNick(), event.getRawFilename(), event.getPort(), startPosition);
-		
-		//Wait for response
 		if (!countdown.await(bot.getConfiguration().getDccResumeAcceptTimeout(), TimeUnit.MILLISECONDS))
 			throw new DccException(DccException.Reason.FileTransferResumeTimeout, event.getUser(), "Event: " + event);
 		if (shuttingDown)
 			throw new DccException(DccException.Reason.FileTransferResumeCancelled, event.getUser(), "Transfer " + event + " canceled due to bot shutting down");
-		
+
 		//User has accepted resume, begin transfer
 		if (pendingTransfer.getPosition() != startPosition)
 			log.warn("User is resuming transfer at position {} instead of requested position {} for transfer {}. Defaulting to users position",
@@ -314,16 +292,15 @@ public class DccHandler implements Closeable {
 
 			//User is connected, begin transfer
 			serverSocket.close();
-			return bot.getConfiguration().getBotFactory().createReceiveFileTransfer(bot, userSocket, event.getUser(), destination, startPosition, event.getFilesize());
+			return bot.getConfiguration().getBotFactory().createReceiveFileTransfer(bot, userSocket, event.getUser(), destination, startPosition);
 		} else {
 			Socket userSocket = new Socket(event.getAddress(), event.getPort(), getRealDccAddress(), 0);
-			return bot.getConfiguration().getBotFactory().createReceiveFileTransfer(bot, userSocket, event.getUser(), destination, startPosition, event.getFilesize());
+			return bot.getConfiguration().getBotFactory().createReceiveFileTransfer(bot, userSocket, event.getUser(), destination, startPosition);
 		}
 	}
 
 	/**
 	 * Send a chat request using {@link Configuration#isDccPassiveRequest()}
-	 * <p>
 	 * @param receiver The user to chat with
 	 * @return An active {@link SendChat}
 	 * @throws IOException If an error occurred during connection
@@ -336,7 +313,6 @@ public class DccHandler implements Closeable {
 
 	/**
 	 * Send a chat request using passive parameter
-	 * <p>
 	 * @param receiver The user to chat with
 	 * @param passive Whether to connect passively
 	 * @return An active {@link SendChat}
@@ -379,7 +355,6 @@ public class DccHandler implements Closeable {
 
 	/**
 	 * Send file using {@link Configuration#isDccPassiveRequest() }
-	 * <p>
 	 * @param file The file to send
 	 * @param receiver The user to send the file to
 	 * @return An active {@link SendFileTransfer}
@@ -393,7 +368,6 @@ public class DccHandler implements Closeable {
 
 	/**
 	 * Send file using {@link Configuration#isDccPassiveRequest() }
-	 * <p>
 	 * @param file The file to send
 	 * @param receiver The user to send the file to
 	 * @param passive Whether to connect passively
@@ -453,8 +427,7 @@ public class DccHandler implements Closeable {
 	 * <ol><li>{@link Configuration#getDccLocalAddress()}</li>
 	 * <li>{@link Configuration#getLocalAddress()}</li>
 	 * <li>{@link PircBotX#getLocalAddress()}</li>
-	 * <p>
-	 * @return
+	 * @return 
 	 */
 	public InetAddress getRealDccAddress() {
 		//Try dccLocalAddress (which tries to default to dccLocalAddress
@@ -525,29 +498,20 @@ public class DccHandler implements Closeable {
 	public void close() {
 		//Shutdown open reverse dcc servers
 		shuttingDown = true;
-		int pendingCount = pendingReceiveTransfers.values().size() + pendingSendPassiveTransfers.values().size();
-		if(pendingCount > 0) {
-			log.info("Terminating {} DCC transfers waiting to be accepted", pendingCount);
-			for (CountDownLatch curCountdown : pendingReceiveTransfers.values())
-				curCountdown.countDown();
-			for (CountDownLatch curCountdown : pendingSendPassiveTransfers.values())
-				curCountdown.countDown();
-		}
+		log.info("Terminating all transfers waiting to be accepted");
+		for (CountDownLatch curCountdown : pendingReceiveTransfers.values())
+			curCountdown.countDown();
+		for (CountDownLatch curCountdown : pendingSendPassiveTransfers.values())
+			curCountdown.countDown();
 	}
 
 	public static String addressToInteger(InetAddress address) {
-		if (address instanceof Inet6Address)
-			return address.getHostAddress();
 		return new BigInteger(1, address.getAddress()).toString();
 	}
 
-	public static InetAddress parseRawAddress(String rawAddress) throws UnknownHostException {
-		//Some IPv6 clients are sending the full IPv6 address instead of a bigint
-		if (rawAddress.contains(":"))
-			return Inet6Address.getByName(rawAddress);
-		
+	public static InetAddress integerToAddress(String rawInteger) {
 		//Convert the rawInteger into something usable
-		BigInteger bigIp = new BigInteger(rawAddress);
+		BigInteger bigIp = new BigInteger(rawInteger);
 		byte[] addressBytes = bigIp.toByteArray();
 
 		//If there aren't enough bytes, pad with 0 byte
@@ -567,13 +531,13 @@ public class DccHandler implements Closeable {
 		try {
 			return InetAddress.getByAddress(addressBytes);
 		} catch (UnknownHostException ex) {
-			throw new RuntimeException("Can't get InetAdrress version of int IP address " + rawAddress + " (bytes: " + Arrays.toString(addressBytes) + ")", ex);
+			throw new RuntimeException("Can't get InetAdrress version of int IP address " + rawInteger + " (bytes: " + Arrays.toString(addressBytes) + ")", ex);
 		}
 	}
 
 	@Data
 	protected static class PendingRecieveFileTransfer {
-		protected final IncomingFileTransferEvent event;
+		protected final IncomingFileTransferEvent<PircBotX> event;
 		protected long position;
 	}
 

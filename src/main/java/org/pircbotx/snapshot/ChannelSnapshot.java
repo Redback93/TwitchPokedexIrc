@@ -1,19 +1,20 @@
 /**
- * Copyright (C) 2010-2014 Leon Blakey <lord.quackstar at gmail.com>
+ * Copyright (C) 2010-2013 Leon Blakey <lord.quackstar at gmail.com>
  *
  * This file is part of PircBotX.
  *
- * PircBotX is free software: you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
+ * PircBotX is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * PircBotX is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ * PircBotX is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * PircBotX. If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License
+ * along with PircBotX. If not, see <http://www.gnu.org/licenses/>.
  */
 package org.pircbotx.snapshot;
 
@@ -24,11 +25,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.pircbotx.Channel;
 import org.pircbotx.User;
 import org.pircbotx.UserChannelDao;
-import org.pircbotx.UserHostmask;
 
 /**
  *
- * @author Leon Blakey
+ * @author Leon
  */
 @Slf4j
 public class ChannelSnapshot extends Channel {
@@ -36,8 +36,7 @@ public class ChannelSnapshot extends Channel {
 	protected UserChannelDaoSnapshot dao;
 	@Getter
 	protected final Channel generatedFrom;
-	@Getter(onMethod = @_(
-			@Override))
+	@Getter(onMethod=@_(@Override))
 	protected final String mode;
 
 	public ChannelSnapshot(Channel channel, String mode) {
@@ -61,7 +60,6 @@ public class ChannelSnapshot extends Channel {
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	protected UserChannelDao<User, Channel> getDao() {
 		//Workaround for generics
 		return (UserChannelDao<User, Channel>) (Object) dao;
@@ -93,7 +91,7 @@ public class ChannelSnapshot extends Channel {
 	}
 
 	@Override
-	protected void setTopicSetter(UserHostmask topicSetter) {
+	protected void setTopicSetter(String topicSetter) {
 		SnapshotUtils.fail();
 	}
 

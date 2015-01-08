@@ -1,19 +1,20 @@
 /**
- * Copyright (C) 2010-2014 Leon Blakey <lord.quackstar at gmail.com>
+ * Copyright (C) 2010-2013 Leon Blakey <lord.quackstar at gmail.com>
  *
  * This file is part of PircBotX.
  *
- * PircBotX is free software: you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
+ * PircBotX is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * PircBotX is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ * PircBotX is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * PircBotX. If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License
+ * along with PircBotX. If not, see <http://www.gnu.org/licenses/>.
  */
 package org.pircbotx;
 
@@ -41,7 +42,7 @@ import org.testng.annotations.Test;
 
 /**
  *
- * @author Leon Blakey
+ * @author Leon
  */
 @Slf4j
 public class CAPTest {
@@ -97,11 +98,9 @@ public class CAPTest {
 		when(socket.isConnected()).thenReturn(true);
 		when(socket.getInputStream()).thenReturn(botIn);
 		when(socket.getOutputStream()).thenReturn(botOut);
-		
-		Configuration.Builder configurationBuilder = TestUtils.generateConfigurationBuilder();
-		
 		SocketFactory socketFactory = mock(SocketFactory.class);
-		when(socketFactory.createSocket(InetAddress.getByName(configurationBuilder.getServers().get(0).getHostname()), 6667, null, 0))
+		Configuration.Builder<PircBotX> configurationBuilder = TestUtils.generateConfigurationBuilder().setServerHostname("127.0.0.1");
+		when(socketFactory.createSocket(InetAddress.getByName(configurationBuilder.getServerHostname()), configurationBuilder.getServerPort(), configurationBuilder.getLocalAddress(), 0))
 				.thenReturn(socket);
 
 		configurationBuilder.getCapHandlers().clear();

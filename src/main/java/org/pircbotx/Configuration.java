@@ -1,19 +1,20 @@
 /**
- * Copyright (C) 2010-2014 Leon Blakey <lord.quackstar at gmail.com>
+ * Copyright (C) 2010-2013 Leon Blakey <lord.quackstar at gmail.com>
  *
  * This file is part of PircBotX.
  *
- * PircBotX is free software: you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
+ * PircBotX is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * PircBotX is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ * PircBotX is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * PircBotX. If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License
+ * along with PircBotX. If not, see <http://www.gnu.org/licenses/>.
  */
 package org.pircbotx;
 
@@ -21,19 +22,19 @@ import static com.google.common.base.Preconditions.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.PeekingIterator;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import javax.net.SocketFactory;
 import lombok.Data;
-import lombok.NonNull;
 import lombok.ToString;
 import lombok.experimental.Accessors;
 import org.apache.commons.lang3.StringUtils;
@@ -57,13 +58,13 @@ import org.pircbotx.output.OutputRaw;
 import org.pircbotx.output.OutputUser;
 
 /**
- * Immutable configuration for PircBotX created from {@link Configuration.Builder}
- *
- * @author Leon Blakey
+ * Immutable configuration for PircBotX. Use {@link Configuration.Builder} to create
+ * 
+ * @author Leon Blakey <lord.quackstar at gmail.com>
  */
 @Data
 @ToString(exclude = {"serverPassword", "nickservPassword"})
-public class Configuration {
+public class Configuration<B extends PircBotX> {
 	//WebIRC
 	protected final boolean webIrcEnabled;
 	protected final String webIrcUsername;
@@ -77,8 +78,6 @@ public class Configuration {
 	protected final String finger;
 	protected final String realName;
 	protected final String channelPrefixes;
-	protected final String channelModeMessagePrefixes;
-	protected final boolean snapshotsEnabled;
 	//DCC
 	protected final boolean dccFilenameQuotes;
 	protected final ImmutableList<Integer> dccPorts;
@@ -88,7 +87,8 @@ public class Configuration {
 	protected final int dccTransferBufferSize;
 	protected final boolean dccPassiveRequest;
 	//Connect information
-	protected final ImmutableList<ServerEntry> servers;
+	protected final String serverHostname;
+	protected final int serverPort;
 	protected final String serverPassword;
 	protected final SocketFactory socketFactory;
 	protected final InetAddress localAddress;
@@ -103,26 +103,20 @@ public class Configuration {
 	protected final ImmutableMap<String, String> autoJoinChannels;
 	protected final boolean identServerEnabled;
 	protected final String nickservPassword;
-	protected final String nickservOnSuccess;
-	protected final String nickservNick;
-	protected final boolean nickservDelayJoin;
 	protected final boolean autoReconnect;
-	protected final int autoReconnectDelay;
-	protected final int autoReconnectAttempts;
 	//Bot classes
-	protected final ListenerManager listenerManager;
+	protected final ListenerManager<B> listenerManager;
 	protected final boolean capEnabled;
 	protected final ImmutableList<CapHandler> capHandlers;
 	protected final ImmutableSortedMap<Character, ChannelModeHandler> channelModeHandlers;
 	protected final BotFactory botFactory;
 
 	/**
-	 * Use {@link Configuration.Builder#buildConfiguration() }.
-	 *
-	 * @param builder
-	 * @see Configuration.Builder#buildConfiguration()
+	 * Use {@link Configuration.Builder#build() }.
+	 * @param builder 
+	 * @see Configuration.Builder#build()
 	 */
-	protected Configuration(Builder builder) {
+	protected Configuration(Builder<B> builder) {
 		//Check for basics
 		if (builder.isWebIrcEnabled()) {
 			checkNotNull(builder.getWebIrcAddress(), "Must specify WEBIRC address if enabled");
@@ -130,42 +124,25 @@ public class Configuration {
 			checkArgument(StringUtils.isNotBlank(builder.getWebIrcUsername()), "Must specify WEBIRC username if enabled");
 			checkArgument(StringUtils.isNotBlank(builder.getWebIrcPassword()), "Must specify WEBIRC password if enabled");
 		}
+		checkNotNull(builder.getListenerManager());
 		checkArgument(StringUtils.isNotBlank(builder.getName()), "Must specify name");
 		checkArgument(StringUtils.isNotBlank(builder.getLogin()), "Must specify login");
-		checkArgument(StringUtils.isNotBlank(builder.getVersion()), "Must specify version");
-		checkArgument(StringUtils.isNotBlank(builder.getFinger()), "Must specify finger");
 		checkArgument(StringUtils.isNotBlank(builder.getRealName()), "Must specify realName");
 		checkArgument(StringUtils.isNotBlank(builder.getChannelPrefixes()), "Must specify channel prefixes");
-		checkNotNull(StringUtils.isNotBlank(builder.getChannelModeMessagePrefixes()), "Channel mode message prefixes cannot be null");
-		checkNotNull(builder.getDccPorts(), "DCC ports list cannot be null");
 		checkArgument(builder.getDccAcceptTimeout() > 0, "dccAcceptTimeout must be positive");
 		checkArgument(builder.getDccResumeAcceptTimeout() > 0, "dccResumeAcceptTimeout must be positive");
 		checkArgument(builder.getDccTransferBufferSize() > 0, "dccTransferBufferSize must be positive");
-		checkNotNull(builder.getServers(), "Servers list cannot be null");
-		checkArgument(!builder.getServers().isEmpty(), "Must specify servers to connect to");
-		for (ServerEntry serverEntry : builder.getServers()) {
-			checkArgument(StringUtils.isNotBlank(serverEntry.getHostname()), "Must specify server hostname");
-			checkArgument(serverEntry.getPort() > 0 && serverEntry.getPort() <= 65535, "Port must be between 1 and 65535");
-		}
-		checkNotNull(builder.getSocketFactory(), "Socket factory cannot be null");
-		checkNotNull(builder.getEncoding(), "Encoding cannot be null");
-		checkNotNull(builder.getLocale(), "Locale cannot be null");
-		checkArgument(builder.getSocketTimeout() > 0, "Socket timeout must greater than 0");
+		checkArgument(StringUtils.isNotBlank(builder.getServerHostname()), "Must specify server hostname");
+		checkArgument(builder.getServerPort() > 0 && builder.getServerPort() <= 65535, "Port must be between 1 and 65535");
+		checkNotNull(builder.getSocketFactory(), "Must specify socket factory");
+		checkNotNull(builder.getEncoding(), "Must specify encoding");
+		checkNotNull(builder.getLocale(), "Must specify locale");
+		checkArgument(builder.getSocketTimeout() >= 0, "Socket timeout must be positive");
 		checkArgument(builder.getMaxLineLength() > 0, "Max line length must be positive");
 		checkArgument(builder.getMessageDelay() >= 0, "Message delay must be positive");
-		checkNotNull(builder.getAutoJoinChannels(), "Auto join channels map cannot be null");
-		for (Map.Entry<String, String> curEntry : builder.getAutoJoinChannels().entrySet())
-			if (StringUtils.isBlank(curEntry.getKey()))
-				throw new RuntimeException("Channel must not be blank");
 		if (builder.getNickservPassword() != null)
-			checkArgument(StringUtils.isNotBlank(builder.getNickservPassword()), "Nickserv password cannot be empty");
-		checkArgument(StringUtils.isNotBlank(builder.getNickservOnSuccess()), "Nickserv on success cannot be blank");
-		checkArgument(StringUtils.isNotBlank(builder.getNickservNick()), "Nickserv nick cannot be blank");
-		checkArgument(builder.getAutoReconnectAttempts() > 0, "setAutoReconnectAttempts must be greater than 0");
-		checkArgument(builder.getAutoReconnectDelay() >= 0, "setAutoReconnectDelay must be positive or 0");
+			checkArgument(!builder.getNickservPassword().trim().equals(""), "Nickserv password cannot be empty");
 		checkNotNull(builder.getListenerManager(), "Must specify listener manager");
-		checkNotNull(builder.getCapHandlers(), "Cap handlers list cannot be null");
-		checkNotNull(builder.getChannelModeHandlers(), "Channel mode handlers list cannot be null");
 		checkNotNull(builder.getBotFactory(), "Must specify bot factory");
 
 		this.webIrcEnabled = builder.isWebIrcEnabled();
@@ -178,9 +155,7 @@ public class Configuration {
 		this.version = builder.getVersion();
 		this.finger = builder.getFinger();
 		this.realName = builder.getRealName();
-		this.channelPrefixes = builder.getChannelPrefixes().trim();
-		this.channelModeMessagePrefixes = builder.getChannelModeMessagePrefixes().trim();
-		this.snapshotsEnabled = builder.isSnapshotsEnabled();
+		this.channelPrefixes = builder.getChannelPrefixes();
 		this.dccFilenameQuotes = builder.isDccFilenameQuotes();
 		this.dccPorts = ImmutableList.copyOf(builder.getDccPorts());
 		this.dccLocalAddress = builder.getDccLocalAddress();
@@ -188,7 +163,8 @@ public class Configuration {
 		this.dccResumeAcceptTimeout = builder.getDccResumeAcceptTimeout();
 		this.dccTransferBufferSize = builder.getDccTransferBufferSize();
 		this.dccPassiveRequest = builder.isDccPassiveRequest();
-		this.servers = ImmutableList.copyOf(builder.getServers());
+		this.serverHostname = builder.getServerHostname();
+		this.serverPort = builder.getServerPort();
 		this.serverPassword = builder.getServerPassword();
 		this.socketFactory = builder.getSocketFactory();
 		this.localAddress = builder.getLocalAddress();
@@ -201,12 +177,7 @@ public class Configuration {
 		this.messageDelay = builder.getMessageDelay();
 		this.identServerEnabled = builder.isIdentServerEnabled();
 		this.nickservPassword = builder.getNickservPassword();
-		this.nickservOnSuccess = builder.getNickservOnSuccess();
-		this.nickservNick = builder.getNickservNick();
-		this.nickservDelayJoin = builder.isNickservDelayJoin();
 		this.autoReconnect = builder.isAutoReconnect();
-		this.autoReconnectDelay = builder.getAutoReconnectDelay();
-		this.autoReconnectAttempts = builder.getAutoReconnectAttempts();
 		this.listenerManager = builder.getListenerManager();
 		this.autoJoinChannels = ImmutableMap.copyOf(builder.getAutoJoinChannels());
 		this.capEnabled = builder.isCapEnabled();
@@ -219,53 +190,43 @@ public class Configuration {
 		this.botFactory = builder.getBotFactory();
 	}
 
-	@SuppressWarnings("unchecked")
-	public <M extends ListenerManager> M getListenerManager() {
-		return (M) listenerManager;
-	}
-
-	/**
-	 * Builder to create an immutable {@link Configuration}. 
-	 */
 	@Accessors(chain = true)
 	@Data
-	public static class Builder {
+	public static class Builder<B extends PircBotX> {
 		//WebIRC
 		/**
-		 * Enable or disable sending WEBIRC line on connect, default disabled
+		 * Enable or disable sending WEBIRC line on connect
 		 */
 		protected boolean webIrcEnabled = false;
 		/**
-		 * Username of WEBIRC connection, must not be blank if WEBIRC is enabled
+		 * Username of WEBIRC connection
 		 */
 		protected String webIrcUsername = null;
 		/**
-		 * Hostname of WEBIRC connection, must not be blank if WEBIRC is enabled
+		 * Hostname of WEBIRC connection
 		 */
 		protected String webIrcHostname = null;
 		/**
-		 * IP address of WEBIRC connection, must be set if WEBIRC is enabled
+		 * IP address of WEBIRC connection
 		 */
 		protected InetAddress webIrcAddress = null;
 		/**
-		 * Password of WEBIRC connection, must not be blank if WEBIRC is enabled
+		 * Password of WEBIRC connection
 		 */
 		protected String webIrcPassword = null;
 		//Bot information
 		/**
-		 * The nick to be used for the IRC connection (nick!login@host), must
-		 * not be blank
+		 * The base name to be used for the IRC connection (nick!login@host)
 		 */
-		protected String name;
+		protected String name = "PircBotX";
 		/**
-		 * The login to be used for the IRC connection (nick!login@host),
-		 * default PircBotX
+		 * The login to be used for the IRC connection (nick!login@host)
 		 */
 		protected String login = "PircBotX";
 		/**
-		 * CTCP version response.
+		 * CTCP version response. 
 		 */
-		protected String version = "PircBotX " + PircBotX.VERSION + " Java IRC bot - pircbotx.googlecode.com";
+		protected String version = "PircBotX " + PircBotX.VERSION + ", a fork of PircBot, the Java IRC bot - pircbotx.googlecode.com";
 		/**
 		 * CTCP finger response
 		 */
@@ -275,121 +236,96 @@ public class Configuration {
 		 */
 		protected String realName = version;
 		/**
-		 * Allowed channel prefix characters, default <code>#&+!</code>
+		 * Allowed channel prefix characters. Defaults to <code>#&+!</code>
 		 */
 		protected String channelPrefixes = "#&+!";
-		/**
-		 * Supported channel prefixes that restrict a sent message to users with
-		 * this mode, eg <code>PRIVMSG +#channel :hello</code> will only send a
-		 * message to voiced or higher users, default <code>+%&~!</code>
-		 */
-		protected String channelModeMessagePrefixes = "+%&~!";
-		/**
-		 * Enable creation of snapshots, default true. In bulk datasets or very
-		 * lower power devices, creating snapshots can be a relatively expensive
-		 * operation for every {@link GenericSnapshotEvent} (eg PartEvent,
-		 * QuitEvent) since the entire UserChannelDao with all of its users and
-		 * channels is cloned. This can optionally disabled by setting this to
-		 * false, however this makes all
-		 * {@link GenericSnapshotEvent#getUserChannelDaoSnapshot()} calls return
-		 * null.
-		 * <p>
-		 * In regular usage disabling snapshots is not necessary because there
-		 * relatively few user QUITs and PARTs per second.
-		 */
-		protected boolean snapshotsEnabled = true;
 		//DCC
 		/**
-		 * If true sends filenames in quotes, otherwise uses underscores,
-		 * default enabled.
+		 * If true sends filenames in quotes, otherwise uses underscores. Defaults to false
 		 */
 		protected boolean dccFilenameQuotes = false;
 		/**
-		 * Ports to allow DCC incoming connections, recommended to set multiple
-		 * as DCC connections will be rejected if no free port can be found
+		 * Ports to allow DCC incoming connections. Recommended to set multiple as
+		 * DCC connections will be rejected if no free port can be found
 		 */
-		protected List<Integer> dccPorts = Lists.newArrayList();
+		protected List<Integer> dccPorts = new ArrayList<Integer>();
 		/**
-		 * The local address to bind DCC connections to, defaults to {@link #getLocalAddress()
-		 * }
+		 * The local address to bind DCC connections to. Defaults to {@link #getLocalAddress() }
 		 */
 		protected InetAddress dccLocalAddress = null;
 		/**
-		 * Timeout for user to accept a sent DCC request, defaults to {@link #getSocketTimeout()
-		 * }
+		 * Timeout for user to accept a sent DCC request. Defaults to {@link #getSocketTimeout() }
 		 */
 		protected int dccAcceptTimeout = -1;
 		/**
-		 * Timeout for a user to accept a resumed DCC request, defaults to {@link #getDccResumeAcceptTimeout()
-		 * }
+		 * Timeout for a user to accept a resumed DCC request. Defaults to {@link #getDccResumeAcceptTimeout() }
 		 */
 		protected int dccResumeAcceptTimeout = -1;
 		/**
-		 * Size of the DCC file transfer buffer, default 1024
+		 * Size of the DCC file transfer buffer. Defaults to 1024
 		 */
 		protected int dccTransferBufferSize = 1024;
 		/**
-		 * Send DCC requests as passive/reverse requests if not specified
-		 * otherwise, default false
+		 * Weather to send DCC Passive/reverse requests. Defaults to false
 		 */
 		protected boolean dccPassiveRequest = false;
 		//Connect information
 		/**
-		 * List of servers to connect to, easily add with the addServer methods
+		 * Hostname of the IRC server
 		 */
-		protected List<ServerEntry> servers = Lists.newLinkedList();
+		protected String serverHostname = null;
 		/**
-		 * Password for IRC server, default null
+		 * Port number of IRC server. Defaults to 6667
+		 */
+		protected int serverPort = 6667;
+		/**
+		 * Password for IRC server
 		 */
 		protected String serverPassword = null;
 		/**
-		 * Socket factory for connections, defaults to {@link SocketFactory#getDefault()
-		 * }
+		 * Socket factory for connections. Defaults to {@link SocketFactory#getDefault() }
 		 */
 		protected SocketFactory socketFactory = SocketFactory.getDefault();
 		/**
-		 * Address to bind to when connecting to IRC server, default null
+		 * Address to bind to when connecting to IRC server. 
 		 */
 		protected InetAddress localAddress = null;
 		/**
-		 * Charset encoding to use for connection, defaults to
-		 * {@link Charset#defaultCharset()}
+		 * Charset encoding to use for connection. Defaults to {@link Charset#defaultCharset()}
 		 */
 		protected Charset encoding = Charset.defaultCharset();
 		/**
-		 * Locale to use for connection, defaults to {@link Locale#getDefault()
-		 * }
+		 * Locale to use for connection. Defaults to {@link Locale#getDefault() }
 		 */
 		protected Locale locale = Locale.getDefault();
 		/**
-		 * Milliseconds to wait with no data from the IRC server before sending
-		 * a PING request to check if the socket is still alive, default 5
-		 * minutes (1000x60x5=300,000 milliseconds)
+		 * Timeout of IRC connection before sending PING. Defaults to 5 minutes
 		 */
 		protected int socketTimeout = 1000 * 60 * 5;
 		/**
-		 * Maximum line length of IRC server, defaults 512 characters
+		 * Maximum line length of IRC server. Defaults to 512
 		 */
 		protected int maxLineLength = 512;
 		/**
-		 * Enable or disable automatic message splitting to fit
-		 * {@link #getMaxLineLength()} to prevent the IRC server from possibly
-		 * truncating or rejecting the line, default true.
+		 * Enable or disable automatic message splitting to fit {@link #getMaxLineLength()}.
+		 * Note that messages might be truncated by the IRC server if not set. Defaults
+		 * to true
 		 */
 		protected boolean autoSplitMessage = true;
 		/**
-		 * Enable or disable automatic nick changing if a nick is in use by
-		 * adding a number to the end, default false. If this is false and a
-		 * nick is already in use, a {@link IrcException} will be thrown.
+		 * Enable or disable automatic nick changing if a nick is in use by adding
+		 * a number to the end. If this is false and a nick is already in use, a 
+		 * {@link IrcException} will be thrown. Defaults to false. 
 		 */
 		protected boolean autoNickChange = false;
 		/**
-		 * Millisecond delay between sending messages, default 1000 milliseconds
+		 * Millisecond delay between sending messages with {@link OutputRaw#rawLine(java.lang.String) }.
+		 * Defaults to 1000 milliseconds
 		 */
 		protected long messageDelay = 1000;
 		/**
-		 * Enable or disable creating a JVM shutdown hook which will properly
-		 * QUIT the IRC server and shutdown the bot, default true
+		 * Enable or disable creating a JVM shutdown hook which will properly QUIT
+		 * the IRC server and shutdown the bot. Defaults to true
 		 */
 		protected boolean shutdownHookEnabled = true;
 		/**
@@ -397,101 +333,55 @@ public class Configuration {
 		 */
 		protected final Map<String, String> autoJoinChannels = Maps.newHashMap();
 		/**
-		 * Enable or disable use of an existing {@link IdentServer}, default
-		 * false. Note that the IdentServer must be started separately or else
-		 * an exception will be thrown
-		 *
+		 * Enable or disable use of an existing {@link IdentServer}. Note that the
+		 * IdentServer must be started separately or else an exception will be thrown.
+		 * Defaults to false
 		 * @see IdentServer
 		 */
 		protected boolean identServerEnabled = false;
 		/**
-		 * Password to authenticate against NICKSERV, default null (will not try
-		 * to identify)
+		 * If set, password to authenticate against NICKSERV
 		 */
-		protected String nickservPassword = null;
+		protected String nickservPassword;
 		/**
-		 * Case-insensitive message a user with 
-		 * {@link #setNickservNick(java.lang.String) } in its hostmask will
-		 * always contain when we have successfully identified, defaults to "you
-		 * are now" which which matches all of the following known server
-		 * responses:
-		 * <ul>
-		 * <li>ircd-seven (freenode) - You are now identified for PircBotX</li>
-		 * <li>Unreal (swiftirc) - Password accepted - you are now
-		 * recognized.</li>
-		 * <li>InspIRCd (mozilla) - You are now logged in as PircBotX</li>
-		 * </ul>
-		 *
-		 * @see PircBotX#isNickservIdentified()
-		 * @see #setNickservNick(java.lang.String)
-		 */
-		protected String nickservOnSuccess = "you are now";
-		/**
-		 * The nick of the nickserv service account, default "nickserv".
-		 *
-		 * @see PircBotX#isNickservIdentified()
-		 */
-		protected String nickservNick = "nickserv";
-		/**
-		 * Delay joining channels until were identified to nickserv, default
-		 * false
-		 */
-		protected boolean nickservDelayJoin = false;
-		/**
-		 * Enable or disable automatic reconnecting, default false. Note that
-		 * you MUST call {@link PircBotX#stopBotReconnect() } when you do not
-		 * want the bot to reconnect anymore!
+		 * Enable or disable automatic reconnecting. Note that you MUST call 
+		 * {@link PircBotX#stopBotReconnect() } when you do not want the bot to 
+		 * reconnect anymore! Defaults to false
 		 */
 		protected boolean autoReconnect = false;
-		/**
-		 * Delay in milliseconds between reconnect attempts, default 0.
-		 */
-		protected int autoReconnectDelay = 0;
-		/**
-		 * Number of times to attempt to reconnect, default 5.
-		 */
-		protected int autoReconnectAttempts = 5;
 		//Bot classes
 		/**
-		 * The {@link ListenerManager} to use to handle events, default
-		 * {@link ThreadedListenerManager}.
+		 * The {@link ListenerManager} to use to handle events.
 		 */
-		//This is lazy loaded in {@link #getListenerManager()} since creating a thread pool is expensive
-		protected ListenerManager listenerManager = null;
+		protected ListenerManager<B> listenerManager = null;
 		/**
-		 * Enable or disable CAP handling, defaults true.
+		 * Enable or disable CAP handling. Defaults to false
 		 */
-		protected boolean capEnabled = true;
+		protected boolean capEnabled = false;
 		/**
-		 * IRCv3 CAP features to try to use, default enables multi-prefix and
-		 * away-notify but ignoring if the server doesn't support them
+		 * Registered {@link CapHandler}'s. 
 		 */
-		protected final List<CapHandler> capHandlers = Lists.<CapHandler>newArrayList(
-				new EnableCapHandler("multi-prefix", true),
-				new EnableCapHandler("away-notify", true)
-		);
-		/**
-		 * Handlers for channel modes, defaults to built-in handlers which cover
-		 * basic modes that are generally supported on most IRC servers
-		 */
-		protected final List<ChannelModeHandler> channelModeHandlers = Lists.newArrayList(InputParser.DEFAULT_CHANNEL_MODE_HANDLERS);
+		protected final List<CapHandler> capHandlers = new ArrayList<CapHandler>();
+		protected final List<ChannelModeHandler> channelModeHandlers = new ArrayList<ChannelModeHandler>();
 		/**
 		 * The {@link BotFactory} to use
 		 */
 		protected BotFactory botFactory = new BotFactory();
 
 		/**
-		 * Create with defaults that work in most situations and IRC servers
+		 * Default constructor, adding a multi-prefix {@link EnableCapHandler}
 		 */
 		public Builder() {
+			capHandlers.add(new EnableCapHandler("multi-prefix", true));
+			capHandlers.add(new EnableCapHandler("away-notify", true));
+			channelModeHandlers.addAll(InputParser.DEFAULT_CHANNEL_MODE_HANDLERS);
 		}
 
 		/**
 		 * Copy values from an existing Configuration.
-		 *
-		 * @param configuration Configuration to copy values from
+		 * @param configuration Configuration<B> to copy values from
 		 */
-		public Builder(Configuration configuration) {
+		public Builder(Configuration<B> configuration) {
 			this.webIrcEnabled = configuration.isWebIrcEnabled();
 			this.webIrcUsername = configuration.getWebIrcUsername();
 			this.webIrcHostname = configuration.getWebIrcHostname();
@@ -503,8 +393,6 @@ public class Configuration {
 			this.finger = configuration.getFinger();
 			this.realName = configuration.getRealName();
 			this.channelPrefixes = configuration.getChannelPrefixes();
-			this.channelModeMessagePrefixes = configuration.getChannelModeMessagePrefixes();
-			this.snapshotsEnabled = configuration.isSnapshotsEnabled();
 			this.dccFilenameQuotes = configuration.isDccFilenameQuotes();
 			this.dccPorts.addAll(configuration.getDccPorts());
 			this.dccLocalAddress = configuration.getDccLocalAddress();
@@ -512,7 +400,8 @@ public class Configuration {
 			this.dccResumeAcceptTimeout = configuration.getDccResumeAcceptTimeout();
 			this.dccTransferBufferSize = configuration.getDccTransferBufferSize();
 			this.dccPassiveRequest = configuration.isDccPassiveRequest();
-			this.servers.addAll(configuration.getServers());
+			this.serverHostname = configuration.getServerHostname();
+			this.serverPort = configuration.getServerPort();
 			this.serverPassword = configuration.getServerPassword();
 			this.socketFactory = configuration.getSocketFactory();
 			this.localAddress = configuration.getLocalAddress();
@@ -525,12 +414,7 @@ public class Configuration {
 			this.messageDelay = configuration.getMessageDelay();
 			this.listenerManager = configuration.getListenerManager();
 			this.nickservPassword = configuration.getNickservPassword();
-			this.nickservOnSuccess = configuration.getNickservOnSuccess();
-			this.nickservNick = configuration.getNickservNick();
-			this.nickservDelayJoin = configuration.isNickservDelayJoin();
 			this.autoReconnect = configuration.isAutoReconnect();
-			this.autoReconnectDelay = configuration.getAutoReconnectDelay();
-			this.autoReconnectAttempts = configuration.getAutoReconnectAttempts();
 			this.autoJoinChannels.putAll(configuration.getAutoJoinChannels());
 			this.identServerEnabled = configuration.isIdentServerEnabled();
 			this.capEnabled = configuration.isCapEnabled();
@@ -541,11 +425,10 @@ public class Configuration {
 		}
 
 		/**
-		 * Copy values from another builder.
-		 *
-		 * @param otherBuilder
+		 * Copy values from another builder. 
+		 * @param otherBuilder<B> 
 		 */
-		public Builder(Builder otherBuilder) {
+		public Builder(Builder<B> otherBuilder) {
 			this.webIrcEnabled = otherBuilder.isWebIrcEnabled();
 			this.webIrcUsername = otherBuilder.getWebIrcUsername();
 			this.webIrcHostname = otherBuilder.getWebIrcHostname();
@@ -557,8 +440,6 @@ public class Configuration {
 			this.finger = otherBuilder.getFinger();
 			this.realName = otherBuilder.getRealName();
 			this.channelPrefixes = otherBuilder.getChannelPrefixes();
-			this.channelModeMessagePrefixes = otherBuilder.getChannelModeMessagePrefixes();
-			this.snapshotsEnabled = otherBuilder.isSnapshotsEnabled();
 			this.dccFilenameQuotes = otherBuilder.isDccFilenameQuotes();
 			this.dccPorts.addAll(otherBuilder.getDccPorts());
 			this.dccLocalAddress = otherBuilder.getDccLocalAddress();
@@ -566,7 +447,8 @@ public class Configuration {
 			this.dccResumeAcceptTimeout = otherBuilder.getDccResumeAcceptTimeout();
 			this.dccTransferBufferSize = otherBuilder.getDccTransferBufferSize();
 			this.dccPassiveRequest = otherBuilder.isDccPassiveRequest();
-			this.servers.addAll(otherBuilder.getServers());
+			this.serverHostname = otherBuilder.getServerHostname();
+			this.serverPort = otherBuilder.getServerPort();
 			this.serverPassword = otherBuilder.getServerPassword();
 			this.socketFactory = otherBuilder.getSocketFactory();
 			this.localAddress = otherBuilder.getLocalAddress();
@@ -579,12 +461,7 @@ public class Configuration {
 			this.messageDelay = otherBuilder.getMessageDelay();
 			this.listenerManager = otherBuilder.getListenerManager();
 			this.nickservPassword = otherBuilder.getNickservPassword();
-			this.nickservOnSuccess = otherBuilder.getNickservOnSuccess();
-			this.nickservNick = otherBuilder.getNickservNick();
-			this.nickservDelayJoin = otherBuilder.isNickservDelayJoin();
 			this.autoReconnect = otherBuilder.isAutoReconnect();
-			this.autoReconnectDelay = otherBuilder.getAutoReconnectDelay();
-			this.autoReconnectAttempts = otherBuilder.getAutoReconnectAttempts();
 			this.autoJoinChannels.putAll(otherBuilder.getAutoJoinChannels());
 			this.identServerEnabled = otherBuilder.isIdentServerEnabled();
 			this.capEnabled = otherBuilder.isCapEnabled();
@@ -595,236 +472,165 @@ public class Configuration {
 		}
 
 		/**
-		 * The local address to bind DCC connections to. Defaults to {@link #getLocalAddress()
-		 * }
+		 * The local address to bind DCC connections to. Defaults to {@link #getLocalAddress() }
 		 */
 		public InetAddress getDccLocalAddress() {
 			return (dccLocalAddress != null) ? dccLocalAddress : localAddress;
 		}
 
 		/**
-		 * Timeout for user to accept a sent DCC request. Defaults to {@link #getSocketTimeout()
-		 * }
+		 * Timeout for user to accept a sent DCC request. Defaults to {@link #getSocketTimeout() }
 		 */
 		public int getDccAcceptTimeout() {
 			return (dccAcceptTimeout != -1) ? dccAcceptTimeout : socketTimeout;
 		}
 
 		/**
-		 * Timeout for a user to accept a resumed DCC request. Defaults to {@link #getDccResumeAcceptTimeout()
-		 * }
+		 * Timeout for a user to accept a resumed DCC request. Defaults to {@link #getDccResumeAcceptTimeout() }
 		 */
 		public int getDccResumeAcceptTimeout() {
 			return (dccResumeAcceptTimeout != -1) ? dccResumeAcceptTimeout : getDccAcceptTimeout();
 		}
 
 		/**
-		 * Add a collection of cap handlers
-		 *
-		 * @see #getCapHandlers()
-		 * @param handlers
-		 * @return
-		 */
-		public Builder addCapHandlers(@NonNull Iterable<CapHandler> handlers) {
-			for (CapHandler curHandler : handlers) {
-				addCapHandler(curHandler);
-			}
-			return this;
-		}
-
-		/**
-		 * Add a cap handler
-		 *
-		 * @see #getCapHandlers()
+		 * Utility method for <code>{@link #getCapHandlers()}.add(handler)</code>
 		 * @param handler
-		 * @return
+		 * @return 
 		 */
-		public Builder addCapHandler(CapHandler handler) {
+		public Builder<B> addCapHandler(CapHandler handler) {
 			getCapHandlers().add(handler);
 			return this;
 		}
 
 		/**
-		 * Add a collection of listeners to the current ListenerManager
-		 *
-		 * @see #getListenerManager()
-		 * @param listeners
-		 * @return
-		 */
-		public Builder addListeners(@NonNull Iterable<Listener> listeners) {
-			for (Listener curListener : listeners) {
-				addListener(curListener);
-			}
-			return this;
-		}
-
-		/**
-		 * Add a listener to the current ListenerManager
-		 *
-		 * @see #getListenerManager()
+		 * Utility method for <code>{@link #getListenerManager().add(listener)</code>
 		 * @param listener
-		 * @return
+		 * @return 
 		 */
-		public Builder addListener(Listener listener) {
+		public Builder<B> addListener(Listener<B> listener) {
 			getListenerManager().addListener(listener);
 			return this;
 		}
 
-		public Builder addAutoJoinChannels(@NonNull Iterable<String> channels) {
-			for (String curChannel : channels) {
-				addAutoJoinChannel(curChannel);
-			}
-			return this;
-		}
-
 		/**
-		 * Add a channel to join on connect
-		 *
-		 * @see #getAutoJoinChannels()
+		 * Utility method for <code>{@link #getAutoJoinChannels().put(channel, "")</code>
 		 * @param channel
-		 * @return
+		 * @return 
 		 */
-		public Builder addAutoJoinChannel(@NonNull String channel) {
-			if (StringUtils.isBlank(channel))
-				throw new RuntimeException("Channel must not be blank");
+		public Builder<B> addAutoJoinChannel(String channel) {
 			getAutoJoinChannels().put(channel, "");
 			return this;
 		}
 
 		/**
-		 * Utility method for <code>{@link #getAutoJoinChannels()}.put(channel,
-		 * key)</code>
-		 *
+		 * Utility method for <code>{@link #getAutoJoinChannels().put(channel, key)</code>
 		 * @param channel
-		 * @return
+		 * @return 
 		 */
-		public Builder addAutoJoinChannel(@NonNull String channel, @NonNull String key) {
-			if (StringUtils.isBlank(channel))
-				throw new RuntimeException("Channel must not be blank");
-			if (StringUtils.isBlank(key))
-				throw new RuntimeException("Key must not be blank");
+		public Builder<B> addAutoJoinChannel(String channel, String key) {
 			getAutoJoinChannels().put(channel, key);
 			return this;
 		}
 
-		public Builder addServer(@NonNull String server) {
-			servers.add(new ServerEntry(server, 6667));
-			return this;
-		}
-
-		public Builder addServer(@NonNull String server, int port) {
-			servers.add(new ServerEntry(server, port));
-			return this;
-		}
-
-		public Builder addServer(@NonNull ServerEntry serverEntry) {
-			servers.add(serverEntry);
-			return this;
-		}
-
-		public Builder addServers(@NonNull Iterable<ServerEntry> serverEnteries) {
-			for (ServerEntry curServerEntry : serverEnteries)
-				servers.add(curServerEntry);
-			return this;
+		/**
+		 * Utility method to set server hostname and port
+		 * @param hostname
+		 * @param port
+		 * @return 
+		 */
+		public Builder<B> setServer(String hostname, int port) {
+			return setServerHostname(hostname)
+					.setServerPort(port);
 		}
 
 		/**
-		 * Sets a new ListenerManager. <b>NOTE:</b> The {@link CoreHooks} are
-		 * added when this method is called. If you do not want this, remove
-		 * CoreHooks with
+		 * Utility method to set server hostname, port, and password
+		 * @param hostname
+		 * @param port
+		 * @return 
+		 */
+		public Builder<B> setServer(String hostname, int port, String password) {
+			return setServer(hostname, port).setServerPassword(password);
+		}
+
+		/**
+		 * Sets a new ListenerManager. <b>NOTE:</b> The {@link CoreHooks} are added
+		 * when this method is called. If you do not want this, remove CoreHooks with
 		 * {@link ListenerManager#removeListener(org.pircbotx.hooks.Listener) }
-		 *
 		 * @param listenerManager The listener manager
 		 */
 		@SuppressWarnings("unchecked")
-		public Builder setListenerManager(ListenerManager listenerManager) {
-			this.listenerManager = listenerManager;
-			for (Listener curListener : this.listenerManager.getListeners())
+		public Builder<B> setListenerManager(ListenerManager<? extends B> listenerManager) {
+			this.listenerManager = (ListenerManager<B>) listenerManager;
+			for (Listener<B> curListener : this.listenerManager.getListeners())
 				if (curListener instanceof CoreHooks)
 					return this;
 			listenerManager.addListener(new CoreHooks());
 			return this;
 		}
 
-		public void replaceCoreHooksListener(CoreHooks extended) {
-			//Find the corehooks impl
-			CoreHooks orig = null;
-			for (Listener curListener : this.listenerManager.getListeners())
-				if (curListener instanceof CoreHooks)
-					orig = (CoreHooks) curListener;
-
-			//Swap
-			if (orig != null)
-				this.listenerManager.removeListener(orig);
-			addListener(extended);
-		}
-
 		/**
-		 * Returns the current ListenerManager in use by this bot. Note that the
-		 * default listener manager ({@link ListenerManager}) is lazy loaded
-		 * here unless one was already set
-		 *
+		 * Returns the current ListenerManager in use by this bot. Note that the default
+		 * listener manager ({@link ListenerManager}) is lazy loaded here unless one
+		 * was already set
 		 * @return Current ListenerManager
 		 */
-		@SuppressWarnings("unchecked")
-		public <M extends ListenerManager> M getListenerManager() {
+		public ListenerManager<B> getListenerManager() {
 			if (listenerManager == null)
-				setListenerManager(new ThreadedListenerManager());
-			return (M) listenerManager;
+				setListenerManager(new ThreadedListenerManager<B>());
+			return listenerManager;
 		}
 
 		/**
 		 * Build a new configuration from this Builder
-		 *
-		 * @return
+		 * @return 
 		 */
-		public Configuration buildConfiguration() {
-			return new Configuration(this);
+		public Configuration<B> buildConfiguration() {
+			return new Configuration<B>(this);
 		}
 
 		/**
-		 * Create a <b>new</b> builder with the specified hostname then build a
-		 * configuration. Useful for template builders
-		 *
+		 * Create a <b>new</b> builder with the specified hostname then build 
+		 * a configuration. Useful for template builders
 		 * @param hostname
-		 * @return
+		 * @return 
 		 */
-		public Configuration buildForServer(String hostname) {
-			return new Builder(this)
-					.addServer(hostname)
+		public Configuration<B> buildForServer(String hostname) {
+			return new Builder<B>(this)
+					.setServerHostname(serverHostname)
 					.buildConfiguration();
 		}
 
 		/**
-		 * Create a <b>new</b> builder with the specified hostname and port then
-		 * build a configuration. Useful for template builders
-		 *
+		 * Create a <b>new</b> builder with the specified hostname and port then build 
+		 * a configuration. Useful for template builders
 		 * @param hostname
-		 * @return
+		 * @return 
 		 */
-		public Configuration buildForServer(String hostname, int port) {
-			return new Builder(this)
-					.addServer(hostname, port)
+		public Configuration<B> buildForServer(String hostname, int port) {
+			return new Builder<B>(this)
+					.setServerHostname(serverHostname)
+					.setServerPort(serverPort)
 					.buildConfiguration();
 		}
 
 		/**
-		 * Create a <b>new</b> builder with the specified hostname, port, and
-		 * password then build a configuration. Useful for template builders
-		 *
+		 * Create a <b>new</b> builder with the specified hostname, port, and password
+		 * then build a configuration. Useful for template builders
 		 * @param hostname
-		 * @return
+		 * @return 
 		 */
-		public Configuration buildForServer(String hostname, int port, String password) {
-			return new Builder(this)
-					.addServer(hostname, port)
-					.setServerPassword(password)
+		public Configuration<B> buildForServer(String hostname, int port, String password) {
+			return new Builder<B>(this)
+					.setServerHostname(serverHostname)
+					.setServerPort(serverPort)
+					.setServerPassword(serverPassword)
 					.buildConfiguration();
 		}
 	}
 
 	/**
-	 * Factory for various internal bot classes.
+	 * Factory for various bot classes. 
 	 */
 	public static class BotFactory {
 		public UserChannelDao createUserChannelDao(PircBotX bot) {
@@ -851,7 +657,7 @@ public class Configuration {
 			return new OutputChannel(bot, channel);
 		}
 
-		public OutputUser createOutputUser(PircBotX bot, UserHostmask user) {
+		public OutputUser createOutputUser(PircBotX bot, User user) {
 			return new OutputUser(bot, user);
 		}
 
@@ -875,40 +681,20 @@ public class Configuration {
 			return new SendFileTransfer(bot.getConfiguration(), socket, user, file, startPosition);
 		}
 
-		public ReceiveFileTransfer createReceiveFileTransfer(PircBotX bot, Socket socket, User user, File file, long startPosition, long fileSize) {
-			return new ReceiveFileTransfer(bot.getConfiguration(), socket, user, file, startPosition, fileSize);
+		public ReceiveFileTransfer createReceiveFileTransfer(PircBotX bot, Socket socket, User user, File file, long startPosition) {
+			return new ReceiveFileTransfer(bot.getConfiguration(), socket, user, file, startPosition);
 		}
 
 		public ServerInfo createServerInfo(PircBotX bot) {
 			return new ServerInfo(bot);
 		}
 
-		public UserHostmask createUserHostmask(PircBotX bot, String hostmask) {
-			return new UserHostmask(bot, hostmask);
-		}
-
-		public UserHostmask createUserHostmask(PircBotX bot, String extbanPrefix, String nick, String login, String hostname) {
-			return new UserHostmask(bot, extbanPrefix, nick, login, hostname);
-		}
-
-		public User createUser(UserHostmask userHostmask) {
-			return new User(userHostmask);
+		public User createUser(PircBotX bot, String nick) {
+			return new User(bot, bot.getUserChannelDao(), nick);
 		}
 
 		public Channel createChannel(PircBotX bot, String name) {
 			return new Channel(bot, bot.getUserChannelDao(), name);
-		}
-	}
-
-	@Data
-	public static class ServerEntry {
-		@NonNull
-		private final String hostname;
-		private final int port;
-
-		@Override
-		public String toString() {
-			return hostname + ":" + port;
 		}
 	}
 }

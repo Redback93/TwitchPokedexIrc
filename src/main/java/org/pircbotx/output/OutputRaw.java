@@ -1,24 +1,24 @@
 /**
- * Copyright (C) 2010-2014 Leon Blakey <lord.quackstar at gmail.com>
+ * Copyright (C) 2010-2013 Leon Blakey <lord.quackstar at gmail.com>
  *
  * This file is part of PircBotX.
  *
- * PircBotX is free software: you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later
- * version.
+ * PircBotX is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * PircBotX is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ * PircBotX is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along with
- * PircBotX. If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License
+ * along with PircBotX. If not, see <http://www.gnu.org/licenses/>.
  */
 package org.pircbotx.output;
 
 import static com.google.common.base.Preconditions.*;
-import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -32,8 +32,7 @@ import org.slf4j.MarkerFactory;
 
 /**
  * Send raw lines to the server with locking and message delay support.
- * <p>
- * @author Leon Blakey
+ * @author Leon Blakey <lord.quackstar at gmail.com>
  */
 @RequiredArgsConstructor
 @Slf4j
@@ -73,12 +72,8 @@ public class OutputRaw {
 			log.info(OUTPUT_MARKER, line);
 			Utils.sendRawLineToServer(bot, line);
 			lastSentLine = System.nanoTime();
-		} catch (IOException e) {
-			throw new RuntimeException("IO exception when sending line to server, is the network still up? " + exceptionDebug(), e);
-		} catch (InterruptedException e) {
-			throw new RuntimeException("Couldn't pause thread for message delay. " + exceptionDebug(), e);
 		} catch (Exception e) {
-			throw new RuntimeException("Could not send line to server. " + exceptionDebug(), e);
+			throw new RuntimeException("Couldn't pause thread for message delay", e);
 		} finally {
 			writeLock.unlock();
 		}
@@ -89,7 +84,7 @@ public class OutputRaw {
 	 * the message delay for messages waiting to send
 	 *
 	 * @param line The raw line to send to the IRC server.
-	 * @see #rawLineNow(java.lang.String, boolean)
+	 * @see #rawLineNow(java.lang.String, boolean) 
 	 */
 	public void rawLineNow(String line) {
 		rawLineNow(line, false);
@@ -97,7 +92,6 @@ public class OutputRaw {
 
 	/**
 	 * Sends a raw line to the IRC server as soon as possible
-	 * <p>
 	 * @param line The raw line to send to the IRC server
 	 * @param resetDelay If true, pending messages will reset their delay.
 	 */
@@ -113,10 +107,6 @@ public class OutputRaw {
 			if (resetDelay)
 				//Reset the 
 				writeNowCondition.signalAll();
-		} catch (IOException e) {
-			throw new RuntimeException("IO exception when sending line to server, is the network still up? " + exceptionDebug(), e);
-		} catch (Exception e) {
-			throw new RuntimeException("Could not send line to server. " + exceptionDebug(), e);
 		} finally {
 			writeLock.unlock();
 		}
@@ -162,9 +152,5 @@ public class OutputRaw {
 	 */
 	public int getOutgoingQueueSize() {
 		return writeLock.getHoldCount();
-	}
-
-	protected String exceptionDebug() {
-		return "Connected: " + bot.isConnected() + " | Bot State: " + bot.getState();
 	}
 }
