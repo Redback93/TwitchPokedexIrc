@@ -77,7 +77,7 @@ public class OutputChannel {
 	public void message(User user, String message) {
 		if (user == null)
 			throw new IllegalArgumentException("Can't send message to null user");
-		message(user.getNick() + ": " + message);
+		message((user.isDonator() ? "&#10084; " : "") + user.getNick() + ": " + message);
 	}
 
 	/**

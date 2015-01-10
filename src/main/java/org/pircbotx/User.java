@@ -87,6 +87,8 @@ public class User implements Comparable<User> {
 	 * Number of hops to reach the user.
 	 */
 	private int hops = 0;
+	
+	private boolean donator = false;
 
 	@SuppressWarnings("unchecked")
 	protected User(PircBotX bot, UserChannelDao<? extends User, ? extends Channel> dao, String nick) {
@@ -238,5 +240,10 @@ public class User implements Comparable<User> {
 	
 	public boolean isAway() {
 		return awayMessage != null;
+	}
+	
+	public void setDonator(boolean donator)
+	{
+		this.donator = donator;
 	}
 }
