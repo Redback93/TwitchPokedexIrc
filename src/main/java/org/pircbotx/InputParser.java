@@ -19,28 +19,36 @@
 package org.pircbotx;
 
 import org.pircbotx.snapshot.UserSnapshot;
+
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import com.google.common.collect.PeekingIterator;
+
 import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
+
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.apache.commons.lang3.StringUtils;
+
 import static org.pircbotx.ReplyConstants.*;
+
 import org.pircbotx.cap.CapHandler;
 import org.pircbotx.cap.TLSCapHandler;
 import org.pircbotx.exception.IrcException;
@@ -487,9 +495,11 @@ public class InputParser implements Closeable {
 			} else
 				// An unknown CTCP message - ignore it.
 				configuration.getListenerManager().dispatchEvent(new UnknownEvent<PircBotX>(bot, line));
-		} else if (command.equals("PRIVMSG") && channel != null)
+		} else if (command.equals("PRIVMSG") && channel != null) {
 			// This is a normal message to a channel.
+			source.setLastSpoken(new Date());
 			configuration.getListenerManager().dispatchEvent(new MessageEvent<PircBotX>(bot, channel, source, message));
+		}
 		else if (command.equals("PRIVMSG")) {
 			// This is a private message to us.
 			//Add to private message

@@ -19,13 +19,18 @@
 package org.pircbotx;
 
 import org.pircbotx.snapshot.UserSnapshot;
+
 import com.google.common.collect.ImmutableSortedSet;
+
+import java.util.Date;
 import java.util.UUID;
+
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
+
 import org.apache.commons.lang3.concurrent.AtomicSafeInitializer;
 import org.apache.commons.lang3.concurrent.ConcurrentException;
 import org.pircbotx.hooks.WaitForQueue;
@@ -55,6 +60,10 @@ public class User implements Comparable<User> {
 			return bot.getConfiguration().getBotFactory().createOutputUser(bot, User.this);
 		}
 	};
+	@Setter(AccessLevel.PUBLIC)
+	@Getter(AccessLevel.PUBLIC)
+	private static String DonatorIcon = "";
+	
 	/**
 	 * Current nick of the user.
 	 */
@@ -87,7 +96,12 @@ public class User implements Comparable<User> {
 	 * Number of hops to reach the user.
 	 */
 	private int hops = 0;
+	/**
+	 * The last time the user spoke.
+	 */
+	private Date lastSpoken;
 	
+	@Setter(AccessLevel.PUBLIC)
 	private boolean donator = false;
 
 	@SuppressWarnings("unchecked")
@@ -240,10 +254,5 @@ public class User implements Comparable<User> {
 	
 	public boolean isAway() {
 		return awayMessage != null;
-	}
-	
-	public void setDonator(boolean donator)
-	{
-		this.donator = donator;
 	}
 }
